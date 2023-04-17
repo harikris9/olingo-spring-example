@@ -17,6 +17,26 @@ public class Father {
 
     private String surname;
 
+    private String city;
+
+    private String middleName;
+
+    public String getCity() {
+        return city;
+    }
+
+    public void setCity(String city) {
+        this.city = city;
+    }
+
+    public String getMiddleName() {
+        return middleName;
+    }
+
+    public void setMiddleName(String middleName) {
+        this.middleName = middleName;
+    }
+
     public Long getId() {
         return id;
     }

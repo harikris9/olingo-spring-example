@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: Olingo Example
+app:
+  odata:
+    enabled-entities: Father, Mother
+    enabled-methods: GET

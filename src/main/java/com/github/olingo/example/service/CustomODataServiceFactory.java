@@ -3,7 +3,9 @@ package com.github.olingo.example.service;
 import com.github.olingo.example.config.JerseyConfig;
 import org.apache.olingo.odata2.api.ODataService;
 import org.apache.olingo.odata2.api.ODataServiceFactory;
+import org.apache.olingo.odata2.api.edm.provider.ComplexType;
 import org.apache.olingo.odata2.api.edm.provider.EdmProvider;
+import org.apache.olingo.odata2.api.edm.provider.EntityType;
 import org.apache.olingo.odata2.api.exception.ODataException;
 import org.apache.olingo.odata2.api.processor.ODataContext;
 import org.apache.olingo.odata2.api.processor.ODataSingleProcessor;
@@ -14,11 +16,15 @@ import org.apache.olingo.odata2.jpa.processor.api.factory.ODataJPAFactory;
 
 import javax.persistence.EntityManager;
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class CustomODataServiceFactory extends ODataServiceFactory {
 
     private ODataJPAContext oDataJPAContext;
     private ODataContext oDataContext;
+
+    private List<String> enabledEntities;
 
     @Override
     public final ODataService createService(final ODataContext context) throws ODataException {
@@ -40,6 +46,20 @@ public class CustomODataServiceFactory extends ODataServiceFactory {
 
 
         EdmProvider edmProvider = accessFactory.createJPAEdmProvider(oDataJPAContext);
+
+        // Enable OData only for the configured entities
+        edmProvider.getSchemas()
+                .forEach(schema -> {
+                            if (this.enabledEntities != null) {
+                                List<EntityType> entityTypes = schema.getEntityTypes().stream()
+                                        .filter(p -> this.enabledEntities.contains(p.getName()))
+                                        .collect(Collectors.toList());
+                                schema.setEntityTypes(entityTypes);
+                            }
+                        }
+                );
+
+
         return createODataSingleProcessorService(edmProvider, oDataSingleProcessor);
 
     }
@@ -77,5 +97,9 @@ public class CustomODataServiceFactory extends ODataServiceFactory {
         oDataJPAContext.setPersistenceUnitName("default");
         oDataJPAContext.setContainerManaged(true);
         return oDataJPAContext;
+    }
+
+    public void setEnabledEntities(List<String> enabledEntities){
+        this.enabledEntities = enabledEntities;
     }
 }

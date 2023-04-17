@@ -5,6 +5,7 @@ import org.apache.olingo.odata2.api.ODataServiceFactory;
 import org.apache.olingo.odata2.core.rest.ODataRootLocator;
 import org.apache.olingo.odata2.core.rest.app.ODataApplication;
 import org.glassfish.jersey.server.ResourceConfig;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.inject.Inject;
@@ -21,12 +22,17 @@ import javax.ws.rs.container.ContainerResponseFilter;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.ext.Provider;
 import java.io.IOException;
+import java.util.List;
 
 @Component
 @ApplicationPath("/odata")
 public class JerseyConfig extends ResourceConfig {
 
-    public JerseyConfig(OdataJpaServiceFactory serviceFactory, EntityManagerFactory entityManagerFactory) {
+
+
+    public JerseyConfig(OdataJpaServiceFactory serviceFactory, EntityManagerFactory entityManagerFactory,
+                        @Value("${app.odata.enabled-entities}") List<String> enabledEntities,
+                        @Value("${app.odata.enabled-methods}") List<String> enabledMethods) {
         ODataApplication oDataApplication = new ODataApplication();
         oDataApplication
                 .getClasses()
@@ -35,8 +41,13 @@ public class JerseyConfig extends ResourceConfig {
                         register(c);
                     }
                 });
+
+        serviceFactory.setEnabledEntities(enabledEntities);
+        EntityManagerFilter entityManagerFilter = new EntityManagerFilter(entityManagerFactory);
+        entityManagerFilter.setEnabledMethods(enabledMethods);
+
         register(new ODataServiceRootLocator(serviceFactory));
-        register(new EntityManagerFilter(entityManagerFactory));
+        register(entityManagerFilter);
     }
 
     @Path("/")
@@ -62,6 +73,8 @@ public class JerseyConfig extends ResourceConfig {
                 EntityManagerFilter.class.getName() + "_ENTITY_MANAGER";
         private final EntityManagerFactory entityManagerFactory;
 
+        private List<String> enabledMethods;
+
         @Context
         private HttpServletRequest httpRequest;
         public EntityManagerFilter(EntityManagerFactory entityManagerFactory) {
@@ -72,6 +85,12 @@ public class JerseyConfig extends ResourceConfig {
         public void filter(ContainerRequestContext containerRequestContext) throws IOException {
             EntityManager entityManager = this.entityManagerFactory.createEntityManager();
             httpRequest.setAttribute(EM_REQUEST_ATTRIBUTE, entityManager);
+
+            if(enabledMethods != null && !enabledMethods.contains(containerRequestContext.getMethod())){
+                // Update the error handling framework to handle the below exception
+                throw new RuntimeException("Odata is enabled only for the methods: "+enabledMethods);
+            }
+
             if (!"GET".equalsIgnoreCase(containerRequestContext.getMethod())) {
                 entityManager.getTransaction().begin();
             }
@@ -87,6 +106,10 @@ public class JerseyConfig extends ResourceConfig {
                 }
             }
             entityManager.close();
+        }
+
+        public void setEnabledMethods(List<String> enabledMethods) {
+            this.enabledMethods = enabledMethods;
         }
     }
 
